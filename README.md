@@ -1,1 +1,1 @@
-# EduConnect
+EduConnect is a Go-based application designed to facilitate the management of educational courses. Leveraging the power of the Gin web framework for efficient routing and GORM for robust PostgreSQL database interaction, this project provides a comprehensive backend solution. It's set up to listen on port 8080, offering routes for managing courses, making it an ideal starting point for educational platform developers seeking a structured and scalable backend system.
