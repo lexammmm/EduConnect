@@ -2,13 +2,15 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"sync"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/joho/godotenv"
-	"os"
-	"sync"
-	"time"
 )
 
 type Course struct {
@@ -19,11 +21,10 @@ type Course struct {
 var db *gorm.DB
 var err error
 
-// Cache structure
 type courseCache struct {
-	courses []Course
+	courses    []Course
 	lastUpdate time.Time
-	mu sync.RWMutex
+	mu         sync.RWMutex
 }
 
 var cCache courseCache
@@ -43,31 +44,42 @@ func initDB() {
 
 	db, err = gorm.Open("postgres", dbURI)
 	if err != nil {
-		fmt.Println("Failed to connect to database")
+		fmt.Printf("Failed to connect to database: %v\n", err)
 		panic(err)
 	} else {
 		fmt.Println("Database connected")
 	}
 
-	db.AutoMigrate(&Course{})
+	if err := db.AutoMigrate(&Course{}).Error; err != nil {
+		fmt.Printf("Failed to migrate database: %v\n", err)
+	}
 }
 
 func createCourse(c *gin.Context) {
 	var course Course
-	c.BindJSON(&course)
-	db.Create(&course)
-	// Invalidate the cache
+	if err := c.ShouldBindJSON(&course); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := db.Create(&course).Error; err != nil {
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating course."})
+		return
+	}
+
 	cCache.mu.Lock()
-	cCache.courses = nil // Clear the cache to force a refresh on next read
+	cCache.courses = nil
+	cCache.lastUpdate = time.Time{}
 	cCache.mu.Unlock()
-	c.JSON(200, course)
+
+	c.JSON(http.StatusCreated, course)
 }
 
 func getCourses(c *gin.Context) {
 	cCache.mu.RLock()
 	if time.Since(cCache.lastUpdate) < 5*time.Minute && cCache.courses != nil {
-		// Serve from cache
-		c.JSON(200, cCache.courses)
+		c.JSON(http.StatusOK, cCache.courses)
 		cCache.mu.RUnlock()
 		return
 	}
@@ -75,15 +87,17 @@ func getCourses(c *gin.Context) {
 
 	var courses []Course
 	if err := db.Find(&courses).Error; err != nil {
-		c.AbortWithStatus(404)
 		fmt.Println(err)
-	} else {
-		cCache.mu.Lock()
-		cCache.courses = courses
-		cCache.lastUpdate = time.Now()
-		cCache.mu.Unlock()
-		c.JSON(200, courses)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch courses."})
+		return
 	}
+
+	cCache.mu.Lock()
+	cCache.courses = courses
+	cCache.lastUpdate = time.Now()
+	cCache.mu.Unlock()
+
+	c.JSON(http.StatusOK, courses)
 }
 
 func main() {
