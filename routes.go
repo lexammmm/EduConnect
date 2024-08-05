@@ -1,44 +1,43 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-	"yourapp/controllers"
-	"github.com/joho/godotenv"
-	"os"
+    "github.com/gin-gonic/gin"
+    "log"
+    "net/http"
+    "os"
+    "yourapp/controllers"
+
+    "github.com/joho/godotenv"
 )
 
 func main() {
-	// Optimized environment variables loading.
-	err := godotenv.Load()
-	if err != nil {
-		panic("Failed to load environment variables")
-	}
+    if err := godotenv.Load(); err != nil {
+        log.Fatalf("Failed to load environment variables: %v", err)
+    }
 
-	// Instance with default middleware.
-	router := gin.Default()
+    router := gin.Default()
 
-	// Register endpoints
-	registerRoutes(router)
+    registerRoutes(router)
 
-	// Extracted Port configuration to reduce repetitive access to os.Getenv
-	port := getPort()
+    port := getPort()
 
-	router.Run(":" + port)
+    if err := router.Run(":" + port); err != nil {
+        log.Fatalf("Failed to run server: %v", err)
+    }
 }
 
 func getPort() string {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	return port
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080"
+    }
+    return port
 }
 
-// Encapsulate route setup for potential future reuse and cleaner main function
 func registerRoutes(router *gin.Engine) {
-	router.POST("/courses", controllers.CreateCourse)
-	router.GET("/courses/:id", controllers.GetCourse)
-	router.PUT("/courses/:id", controllers.UpdateCourse)
-	router.DELETE("/courses/:id", controllers.DeleteCourse)
-	router.GET("/courses", controllers.GetAllCourses)
+    router.POST("/courses", controllers.CreateCourse)
+    router.GET("/courses/:id", controllers.GetCourse)
+    router.PUT("/courses/:id", controllers.UpdateCourse)
+    router.DELETE("/courses/:id", controllers.DeleteCourse)
+    router.GET("/courses", controllers.GetAllCourses)
 }
