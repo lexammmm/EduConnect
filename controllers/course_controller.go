@@ -17,91 +17,91 @@ type Course struct {
 	Description string `json:"description"`
 }
 
-var db *gorm.DB
-var err error
+var database *gorm.DB
+var databaseError error
 
-func InitDB() {
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbUser := os.Getenv("DB_USER")
-	dbName := os.Getenv("DB_NAME")
-	dbPassword := os.Getenv("DB_PASSWORD")
+func InitializeDatabase() {
+	databaseHost := os.Getenv("DB_HOST")
+	databasePort := os.Getenv("DB_PORT")
+	databaseUser := os.Getenv("DB_USER")
+	databaseName := os.Getenv("DB_NAME")
+	databasePassword := os.Getenv("DB_PASSWORD")
 
-	dbUri := fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=disable password=%s", dbHost, dbPort, dbUser, dbName, dbPassword)
+	databaseURI := fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=disable password=%s", databaseHost, databasePort, databaseUser, databaseName, databasePassword)
 	fmt.Println("Connecting to database...")
 
-	db, err = gorm.Open("postgres", dbUri)
-	if err != nil {
+	database, databaseError = gorm.Open("postgres", databaseURI)
+	if databaseError != nil {
 		panic("Failed to connect to the database")
 	}
 
-	db.AutoMigrate(&Course{})
+	database.AutoMigrate(&Course{})
 }
 
-func CreateCourse(c *gin.Context) {
-	var course Course
-	c.BindJSON(&course)
-
-	db.Create(&course)
-	c.IndentedJSON(http.StatusCreated, course)
-}
-
-func GetCourses(c *gin.Context) {
-	var courses []Course
-	db.Find(&courses)
-	c.IndentedJSON(http.StatusOK, courses)
-}
-
-func GetCourse(c *gin.Context) {
-	id := c.Params.ByName("id")
-	var course Course
-	if err := db.Where("id = ?", id).First(&course).Error; err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "course not found"})
-		return
-	}
-	c.IndentedJSON(http.StatusOK, course)
-}
-
-func UpdateCourse(c *gin.Context) {
-	var course Course
-	id := c.Params.ByName("id")
-	if err := db.Where("id = ?", id).First(&course).Error; err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "course not found"})
-		return
-	}
-
+func CreateCourseHandler(c *gin.Context) {
 	var newCourse Course
 	c.BindJSON(&newCourse)
 
-	db.Model(&course).Updates(newCourse)
+	database.Create(&newCourse)
+	c.IndentedJSON(http.StatusCreated, newCourse)
+}
+
+func GetAllCoursesHandler(c *gin.Context) {
+	var courses []Course
+	database.Find(&courses)
+	c.IndentedJSON(http.StatusOK, courses)
+}
+
+func GetSingleCourseHandler(c *gin.Context) {
+	courseID := c.Params.ByName("id")
+	var course Course
+	if err := database.Where("id = ?", courseID).First(&course).Error; err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "course not found"})
+		return
+	}
 	c.IndentedJSON(http.StatusOK, course)
 }
 
-func DeleteCourse(c *gin.Context) {
-	id := c.Params.ByName("id")
-	var course Course
-	if err := db.Where("id = ?", id).First(&course).Error; err != nil {
+func UpdateCourseHandler(c *gin.Context) {
+	courseID := c.Params.ByName("id")
+	var existingCourse Course
+	if err := database.Where("id = ?", courseID).First(&existingCourse).Error; err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "course not found"})
 		return
 	}
 
-	db.Delete(&course)
+	var updatedCourseData Course
+	c.BindJSON(&updatedCourseData)
+
+	database.Model(&existingCourse).Updates(updatedCourseData)
+	c.IndentedJSON(http.StatusOK, existingCourse)
+}
+
+func DeleteCourseHandler(c *gin.Context) {
+	courseID := c.Params.ByName("id")
+	var courseToDelete Course
+	if err := database.Where("id = ?", courseID).First(&courseToDelete).Error; err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "course not found"})
+		return
+	}
+
+	database.Delete(&courseToDelete)
 	c.IndentedJSON(http.StatusOK, gin.H{"message": "course deleted"})
 }
 
-func SetupRoutes(r *gin.Engine) {
-	r.GET("/courses", GetCourses)
-	r.GET("/courses/:id", GetCourse)
-	r.POST("/courses", CreateCourse)
-	r.PUT("/courses/:id", UpdateCourse)
-	r.DELETE("/courses/:id", DeleteCourse)
+func SetupRouterEndpoints(router *gin.Engine) {
+	router.GET("/courses", GetAllCoursesHandler)
+	router.GET("/courses/:id", GetSingleCourseHandler)
+	router.POST("/courses", CreateCourseHandler)
+	router.PUT("/courses/:id", UpdateCourseHandler)
+	router.DELETE("/courses/:id", DeleteCourseHandler)
 }
 
 func main() {
-	InitDB()
-	r := gin.Default()
+	InitializeDatabase()
+	router := gin.Default()
 
-	SetupRoutes(r)
+	SetupRouterEndpoints(router)
 
-	r.Run()
+	router.Run()
 }
