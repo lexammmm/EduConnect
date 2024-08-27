@@ -6,19 +6,19 @@ import (
     "os"
 )
 
-var db *gorm.DB
+var databaseConnection *gorm.DB
 
 func init() {
-    dbURL := os.Getenv("DATABASE_URL")
+    databaseURL := os.Getenv("DATABASE_URL")
     var err error
-    db, err = gorm.Open(postgres.Open(dbURL), &gorm.Config{})
+    databaseConnection, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
     if err != nil {
-        panic("failed to connect database")
+        panic("failed to connect to the database")
     }
 
-    err = db.AutoMigrate(&Course{})
+    err = databaseConnection.AutoMigrate(&Course{})
     if err != nil {
-        panic("failed to auto migrate")
+        panic("auto migration failed")
     }
 }
 
@@ -33,12 +33,12 @@ type Course struct {
 func main() {
 }
 
-func closeDB() {
-    sqlDB, err := db.DB()
+func closeDatabaseConnection() {
+    sqlDB, err := databaseConnection.DB()
     if err != nil {
-        panic("failed to get database object from GORM connection")
+        panic("failed to retrieve the SQL database object from GORM")
     }
     if err := sqlDB.Close(); err != nil {
-        panic("failed to close database connection")
+        panic("failed to close the SQL database connection")
     }
 }
