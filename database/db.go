@@ -19,10 +19,17 @@ type Course struct {
 var DB *gorm.DB
 
 func init() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	loadEnv()
+	setupDatabase()
+}
 
+func loadEnv() {
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file:", err)
+	}
+}
+
+func setupDatabase() {
 	username := os.Getenv("DB_USER")
 	password := os.Getenv("DB_PASS")
 	dbName := os.Getenv("DB_NAME")
@@ -30,18 +37,22 @@ func init() {
 	dbPort := os.Getenv("DB_PORT")
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=disable password=%s", dbHost, dbPort, username, dbName, password)
+
 	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	database.AutoMigrate(&Course{})
-
 	DB = database
 }
 
 func main() {
 	var course Course
-	DB.First(&course, 1)
-	fmt.Println(course.Title)
+	if err := DB.First(&course, 1).Error; err != nil {
+		log.Printf("Error retrieving course: %v", err)
+		return
+	}
+
+	fmt.Println("Course Title:", course.Title)
 }
