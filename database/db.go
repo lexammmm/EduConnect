@@ -1,10 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -12,8 +16,8 @@ import (
 
 type Course struct {
 	gorm.Model
-	Title       string
-	Description string
+	Title       string `json:"title"`
+	Description string `json:"description"`
 }
 
 var DB *gorm.DB
@@ -48,11 +52,39 @@ func setupDatabase() {
 }
 
 func main() {
+	r := mux.NewRouter()
+
+	api := r.PathPrefix("/api/v1").Subrouter()
+	api.HandleFunc("/courses", getCourses).Methods("GET")
+	api.HandleFunc("/course/{id}", getCourse).Methods("GET")
+	api.HandleFunc("/course", addCourse).Methods("POST")
+
+	log.Fatal(http.ListenAndServe(":8080", r))
+}
+
+func getCourses(w http.ResponseWriter, r *http.Request) {
+	var courses []Course
+	DB.Find(&courses)
+	json.NewEncoder(w).Encode(courses)
+}
+
+func getCourse(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	id, _ := strconv.Atoi(params["id"])
 	var course Course
-	if err := DB.First(&course, 1).Error; err != nil {
-		log.Printf("Error retrieving course: %v", err)
+	if err := DB.First(&course, id).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	json.NewEncoder(w).Encode(course)
+}
 
-	fmt.Println("Course Title:", course.Title)
+func addCourse(w http.ResponseWriter, r *http.Request) {
+	var course Course
+	if err := json.NewDecoder(r.Body).Decode(&course); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	DB.Create(&course)
+	json.NewEncoder(w).Encode(course)
 }
