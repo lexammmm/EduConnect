@@ -53,8 +53,8 @@ func setupDatabase() {
 
 func main() {
 	r := mux.NewRouter()
-
 	api := r.PathPrefix("/api/v1").Subrouter()
+
 	api.HandleFunc("/courses", getCourses).Methods("GET")
 	api.HandleFunc("/course/{id}", getCourse).Methods("GET")
 	api.HandleFunc("/course", addCourse).Methods("POST")
@@ -65,7 +65,7 @@ func main() {
 func getCourses(w http.ResponseWriter, r *http.Request) {
 	var courses []Course
 	DB.Find(&courses)
-	json.NewEncoder(w).Encode(courses)
+	respondWithJSON(w, courses)
 }
 
 func getCourse(w http.ResponseWriter, r *http.Request) {
@@ -73,18 +73,22 @@ func getCourse(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(params["id"])
 	var course Course
 	if err := DB.First(&course, id).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Course not found", http.StatusNotFound)
 		return
 	}
-	json.NewEncoder(w).Encode(course)
+	respondWithJSON(w, course)
 }
 
 func addCourse(w http.ResponseWriter, r *http.Request) {
 	var course Course
 	if err := json.NewDecoder(r.Body).Decode(&course); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 	DB.Create(&course)
-	json.NewEncoder(w).Encode(course)
+	respondWithJSON(w, course)
+}
+
+func respondWithJSON(w http.ResponseWriter, data interface{}) {
+	json.NewEncoder(w).Encode(data)
 }
