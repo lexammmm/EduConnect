@@ -8,30 +8,30 @@ interface Course {
   description: string;
 }
 
-class Cache<T> {
-  private cache: Map<string, T> = new Map();
+class DataCache<T> {
+  private cacheStorage: Map<string, T> = new Map();
 
-  get(key: string): T | undefined {
-    return this.cache.get(key);
+  retrieve(key: string): T | undefined {
+    return this.cacheStorage.get(key);
   }
 
-  set(key: string, value: T): void {
-    this.cache.set(key, value);
+  store(key: string, value: T): void {
+    this.cacheStorage.set(key, value);
   }
 }
 
-const coursesCache = new Cache<Course[]>();
+const courseDataCache = new DataCache<Course[]>();
 
-async function fetchCourses(): Promise<Course[]> {
+async function getCoursesFromAPI(): Promise<Course[]> {
   const cacheKey = 'courses';
-  const cachedCourses = coursesCache.get(cacheKey);
+  const cachedCourses = courseDataCache.retrieve(cacheKey);
   if (cachedCourses) {
     return cachedCourses;
   }
 
   try {
     const response = await axios.get(`${BASE_API_URL}/courses`);
-    coursesCache.set(cacheKey, response.data);
+    courseDataCache.store(cacheKey, response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching courses:', error);
@@ -39,10 +39,10 @@ async function fetchCourses(): Promise<Course[]> {
   }
 }
 
-async function createCourse(courseData: Course): Promise<Course> {
+async function addNewCourse(courseInfo: Course): Promise<Course> {
   try {
-    const response = await axios.post(`${BASE_API_URL}/courses`, courseData);
-    coursesCache.set('courses', []);
+    const response = await axios.post(`${BASE_API_URL}/courses`, courseInfo);
+    courseDataCache.store('courses', []);
     return response.data;
   } catch (error) {
     console.error('Error creating course:', error);
@@ -50,10 +50,10 @@ async function createCourse(courseData: Course): Promise<Course> {
   }
 }
 
-async function updateCourse(courseId: number, courseData: Course): Promise<Course> {
+async function modifyCourse(courseId: number, courseInfo: Course): Promise<Course> {
   try {
-    const response = await axios.put(`${BASE_API_URL}/courses/${courseId}`, courseData);
-    coursesCache.set('courses', []);
+    const response = await axios.put(`${BASE_API_URL}/courses/${courseId}`, courseInfo);
+    courseDataCache.store('courses', []);
     return response.data;
   } catch (error) {
     console.error('Error updating course:', error);
@@ -61,45 +61,45 @@ async function updateCourse(courseId: number, courseData: Course): Promise<Cours
   }
 }
 
-async function deleteCourse(courseId: number): Promise<void> {
+async function removeCourse(courseId: number): Promise<void> {
   try {
     await axios.delete(`${BASE_API_URL}/courses/${courseId}`);
-    coursesCache.set('courses', []);
+    courseDataCache.store('courses', []);
   } catch (error) {
     console.error('Error deleting course:', error);
     throw error;
   }
 }
 
-async function displayCourses() {
-  const courses = await fetchCourses();
-  const coursesContainer = document.getElementById('courses-container');
-  if (coursesContainer) {
-    coursesContainer.innerHTML = '';
+async function renderCourses() {
+  const courses = await getCoursesFromAPI();
+  const courseListElement = document.getElementById('courses-container');
+  if (courseListElement) {
+    courseListElement.innerHTML = '';
     courses.forEach(course => {
-      const courseElement = document.createElement('div');
-      courseElement.innerText = `Name: ${course.name}, Description: ${course.description}`;
-      coursesContainer.appendChild(courseElement);
+      const courseDetailElement = document.createElement('div');
+      courseDetailElement.innerText = `Name: ${course.name}, Description: ${course.description}`;
+      courseListElement.appendChild(courseDetailElement);
     });
   }
 }
 
-function setupEventListeners() {
-  const createForm = document.getElementById('create-course-form');
-  if (createForm) {
-    createForm.addEventListener('submit', async (e) => {
+function initializeEventListeners() {
+  const creationForm = document.getElementById('create-course-form');
+  if (creationForm) {
+    creationForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const nameInput = (document.getElementById('course-name') as HTMLInputElement).value;
-      const descriptionInput = (document.getElementById('course-description') as HTMLInputElement).value;
-      await createCourse({ name: nameInput, description: descriptionInput });
-      await displayCourses();
+      const nameField = (document.getElementById('course-name') as HTMLInputElement).value;
+      const descriptionField = (document.getElementById('course-description') as HTMLInputElement).value;
+      await addNewCourse({ name: nameField, description: descriptionField });
+      await renderCourses();
     });
   }
 }
 
-async function init() {
-  await displayCourses();
-  setupEventListeners();
+async function initializeApplication() {
+  await renderCourses();
+  initializeEventListeners();
 }
 
-init().catch(console.error);
+initializeApplication().catch(console.error);
